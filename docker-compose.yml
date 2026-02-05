@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - mqtt-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: mqtt-postgres
+    environment:
+      POSTGRES_USER: mqttuser
+      POSTGRES_PASSWORD: mqttpass
+      POSTGRES_DB: mqttdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - mqtt-network
+    restart: unless-stopped
+
+  publisher:
+    build: ./publisher
+    container_name: mqtt-publisher
+    depends_on:
+      - mosquitto
+      - postgres
+    environment:
+      MQTT_BROKER: mosquitto
+      MQTT_PORT: 1883
+      MQTT_TOPIC: application/{app_id}/device/{dev_eui}/event/up
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mqttdata
+      DB_USER: mqttuser
+      DB_PASSWORD: mqttpass
+      MESSAGES_PER_SECOND: 1
+      BATCH_SIZE: 10
+      AUTO_RESET: true
+    networks:
+      - mqtt-network
+    restart: unless-stopped
+
+networks:
+  mqtt-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
