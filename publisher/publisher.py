@@ -9,6 +9,7 @@ import os
 import json
 import time
 import logging
+import base64
 from datetime import datetime
 from threading import Thread, Event
 import psycopg2
@@ -162,17 +163,19 @@ class MQTTPublisher:
     def create_chirpstack_message(self, record):
         """Create a Chirpstack-formatted MQTT message from database record"""
         message = {
-            "applicationID": str(record['application_id']),
-            "applicationName": f"app-{record['application_id']}",
-            "deviceName": record['device_name'],
-            "devEUI": record['device_eui'],
+            "deviceInfo": {
+                "applicationId": str(record['application_id']),
+                "applicationName": f"app-{record['application_id']}",
+                "deviceName": record['device_name'],
+                "devEui": record['device_eui'],
+            },
             "rxInfo": [
                 {
-                    "gatewayID": "0000000000000001",
-                    "uplinkID": f"uplink-{record['id']}",
+                    "gatewayId": "0000000000000001",
+                    "uplinkId": record['id'],
                     "name": "test-gateway",
                     "rssi": record['rssi'],
-                    "loRaSNR": record['snr'],
+                    "snr": record['snr'],
                     "location": {
                         "latitude": 0,
                         "longitude": 0,
@@ -187,7 +190,7 @@ class MQTTPublisher:
             "adr": True,
             "fCnt": record['f_cnt'],
             "fPort": record['f_port'],
-            "data": record['data'],
+            "data": base64.b64encode(json.dumps(record['data']).encode()).decode(),
             "object": record['data'],
             "tags": {},
             "confirmedUplink": False,
